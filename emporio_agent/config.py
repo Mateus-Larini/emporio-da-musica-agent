@@ -32,12 +32,11 @@ CSV_FILES = {
 DEFAULT_MODELS = {
     "anthropic": ["claude-haiku-5-5"],
     "groq": ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"],
-    "google": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
 }
 
 
 def provider() -> str:
-    """ "anthropic", "groq" ou "google". Sem EMPORIO_PROVIDER, deduz pela chave presente."""
+    """ "anthropic" ou "groq". Sem EMPORIO_PROVIDER, deduz pela chave presente."""
     explicit = os.environ.get("EMPORIO_PROVIDER", "").strip().lower()
     if explicit:
         return explicit
@@ -45,8 +44,6 @@ def provider() -> str:
         return "anthropic"
     if os.environ.get("GROQ_API_KEY"):
         return "groq"
-    if os.environ.get("GOOGLE_API_KEY"):
-        return "google"
     return "anthropic"
 
 

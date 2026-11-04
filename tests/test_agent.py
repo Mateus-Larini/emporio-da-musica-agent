@@ -159,7 +159,3 @@ def test_model_names_from_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("EMPORIO_MODEL", "a")
     monkeypatch.setenv("EMPORIO_MODEL_FALLBACKS", "b, c,a")
     assert model_names() == ["a", "b", "c"]
-    monkeypatch.delenv("EMPORIO_MODEL")
-    monkeypatch.delenv("EMPORIO_MODEL_FALLBACKS")
-    monkeypatch.setenv("EMPORIO_PROVIDER", "google")
-    assert model_names()[0] == "gemini-2.5-flash"
