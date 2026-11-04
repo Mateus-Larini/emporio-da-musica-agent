@@ -52,9 +52,10 @@ def test_agent_runs_tool_then_answers(repo: Repository):
     assert '"id": 95' in reply.tool_calls[0].result
     kinds = [type(m).__name__ for m in reply.new_messages]
     assert kinds == ["HumanMessage", "AIMessage", "ToolMessage", "AIMessage"]
-    # system prompt vai na frente e carrega a data de referência
+    # system prompt vai na frente e carrega a data de referência e a saudação da hora
     assert model.calls[0][0].content.startswith("Você é o atendente virtual")
     assert "25/03/2026" in model.calls[0][0].content
+    assert 'Cumprimente com "Bom dia!"' in model.calls[0][0].content
     assert len(model.tools) == 8
 
 
@@ -93,3 +94,11 @@ def test_session_store_roundtrip(tmp_path: Path):
     assert store.list_sessions() == ["5567999990000"]
     store.delete("5567999990000")
     assert store.load("5567999990000") == []
+
+
+def test_greeting_follows_reference_hour():
+    from emporio_agent.prompts import greeting
+
+    assert greeting(datetime(2026, 3, 25, 8, 0)) == "Bom dia"
+    assert greeting(datetime(2026, 3, 25, 14, 0)) == "Boa tarde"
+    assert greeting(datetime(2026, 3, 25, 19, 30)) == "Boa noite"

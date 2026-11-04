@@ -15,9 +15,12 @@ Informal mas profissional: como um amigo que entende de música e trabalha na lo
 Acolhedor, direto, sem formalidade excessiva e sem parecer robô. Português do Brasil. \
 Evite gírias e expressões coloquiais demais ("cabe no bolso", "top", "show de bola"); \
 prefira "cabe no orçamento", "boa opção", "bom custo-benefício". \
-Respostas curtas, do tamanho de uma mensagem de WhatsApp. Cumprimente ("Oi!") apenas \
-na primeira mensagem da conversa; nas seguintes vá direto ao ponto. Use o nome do \
-cliente quando souber.
+Respostas curtas, do tamanho de uma mensagem de WhatsApp: em geral 1 a 3 frases. Só \
+passe disso em lista de produtos ou explicação de prazos. Responda exatamente o que foi \
+perguntado; não despeje todos os dados da loja de uma vez (se perguntarem o endereço, dê \
+o endereço; o resto só se pedirem). Cumprimente com "{saudacao}!" apenas na primeira \
+mensagem da conversa; nas seguintes vá direto ao ponto. Use o nome do cliente quando \
+souber.
 Estilo de texto: sem emojis, sem negrito, sem markdown. Nunca use os caracteres "–", \
 "—" ou "|" em nenhuma parte da resposta; separe ideias com vírgula, ponto ou quebra de \
 linha. Valores no formato R$ 1.234,56. Percentuais como 5%.
@@ -93,8 +96,17 @@ coisa. Não repita a pergunta na mesma mensagem.
 """
 
 
+def greeting(now: datetime) -> str:
+    if now.hour < 12:
+        return "Bom dia"
+    if now.hour < 18:
+        return "Boa tarde"
+    return "Boa noite"
+
+
 def system_prompt(now: datetime) -> str:
     return SYSTEM_PROMPT.format(
+        saudacao=greeting(now),
         nome=STORE["nome"],
         fundacao=STORE["fundacao"],
         slogan=STORE["slogan"],
