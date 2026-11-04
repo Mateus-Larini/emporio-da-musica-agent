@@ -1,0 +1,12 @@
+# Configuração do Streamlit para o projeto.
+# headless: não abre o navegador sozinho nem pede e-mail na primeira execução.
+# gatherUsageStats: desliga a telemetria enviada ao Streamlit.
+[server]
+headless = true
+port = 8501
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#1f6f8b"
