@@ -5,7 +5,7 @@ Uso:
   emporio --session 5567999990000  retoma/cria a sessão com esse id
   emporio --new                    apaga a sessão antes de começar
   emporio --pergunta "..."         modo não interativo (pode repetir a flag)
-  emporio --sem-rastro             não mostra as ferramentas chamadas
+  emporio --rastro                 mostra as ferramentas chamadas (desenvolvedor)
 """
 
 from __future__ import annotations
@@ -114,7 +114,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--pergunta", action="append", metavar="TEXTO", help="modo não interativo; repetível"
     )
-    parser.add_argument("--sem-rastro", action="store_true", help="oculta as ferramentas chamadas")
+    parser.add_argument(
+        "--rastro",
+        action="store_true",
+        help="mostra as ferramentas chamadas e o modelo usado (visão de desenvolvedor)",
+    )
     args = parser.parse_args(argv)
 
     store = SessionStore()
@@ -122,7 +126,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         store.delete(args.session)
 
     agent = build_agent()
-    show_trace = not args.sem_rastro
+    show_trace = args.rastro
 
     if args.pergunta:
         for text in args.pergunta:

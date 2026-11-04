@@ -8,6 +8,8 @@ ferramentas foram chamadas, com quais argumentos e o que devolveram.
 from __future__ import annotations
 
 import json
+import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -63,7 +65,9 @@ def build_model(name: str) -> BaseChatModel:
     if provider() == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(model=name, max_tokens=2048, temperature=0.3, max_retries=2)
+        # 1000 tokens de saída bastam para uma mensagem de WhatsApp e respeitam o
+        # limite por minuto da cota gratuita do Groq em todos os modelos da cadeia.
+        return ChatGroq(model=name, max_tokens=1000, temperature=0.3, max_retries=2)
 
     from langchain_anthropic import ChatAnthropic
 
@@ -74,6 +78,23 @@ def build_model(name: str) -> BaseChatModel:
 
 def default_models() -> list[BaseChatModel]:
     return [build_model(name) for name in model_names()]
+
+
+# Limite por minuto do Groq: o erro 429 diz "Please try again in 1.234s" (ou "1m2s").
+# Esperas até este teto valem a pena antes de descer na cadeia de modelos; acima dele
+# (cota diária, que leva horas) é melhor trocar de modelo na hora.
+SHORT_WAIT_LIMIT = 30.0
+_RETRY_AFTER_RE = re.compile(r"try again in (?:(\d+)m)?(\d+(?:\.\d+)?)(ms|s)", re.IGNORECASE)
+
+
+def retry_after_seconds(exc: Exception) -> float | None:
+    """Tempo de espera sugerido pelo provedor em um 429, se a mensagem trouxer um."""
+    match = _RETRY_AFTER_RE.search(str(exc))
+    if not match:
+        return None
+    minutes, value, unit = match.groups()
+    seconds = float(value) / (1000 if unit == "ms" else 1)
+    return seconds + 60 * int(minutes or 0)
 
 
 def is_fallback_error(exc: Exception) -> bool:
@@ -113,6 +134,7 @@ class Agent:
         self.models = [(m, m.bind_tools(self.tools)) for m in models]
         self.active_index = 0
         self.max_tool_rounds = max_tool_rounds
+        self.sleep = time.sleep  # injetável nos testes
 
     def reply(self, history: list[BaseMessage], user_text: str) -> AgentReply:
         """Responde `user_text` dado o histórico (sem system message).
@@ -150,7 +172,7 @@ class Agent:
             new_messages.append(ai)
             self._accumulate_usage(usage, ai)
 
-        text = (ai.text or "").strip() if ai is not None else ""
+        text = _tidy_text((ai.text or "").strip()) if ai is not None else ""
         return AgentReply(
             text=text or FALLBACK_TEXT,
             tool_calls=traces,
@@ -171,11 +193,28 @@ class Agent:
         last_error: Exception | None = None
         for index in range(self.active_index, len(self.models)):
             base, bound = self.models[index]
+            model = bound if with_tools else base
             try:
-                ai = (bound if with_tools else base).invoke(messages)
+                ai = model.invoke(messages)
             except Exception as exc:  # noqa: BLE001 - decidimos abaixo se é caso de fallback
-                if not is_fallback_error(exc) or index == len(self.models) - 1:
+                if not is_fallback_error(exc):
                     raise
+                wait = retry_after_seconds(exc)
+                if wait is not None and wait <= SHORT_WAIT_LIMIT:
+                    # Limite por minuto: uma espera curta preserva o modelo principal,
+                    # que responde melhor que os reservas.
+                    self.sleep(wait + 0.5)
+                    try:
+                        ai = model.invoke(messages)
+                    except Exception as retry_exc:  # noqa: BLE001
+                        if not is_fallback_error(retry_exc):
+                            raise
+                        exc = retry_exc
+                    else:
+                        self.active_index = index
+                        return ai
+                if index == len(self.models) - 1:
+                    raise exc
                 last_error = exc
                 continue
             self.active_index = index
@@ -203,3 +242,53 @@ class Agent:
         meta = ai.usage_metadata or {}
         usage["input_tokens"] += int(meta.get("input_tokens", 0) or 0)
         usage["output_tokens"] += int(meta.get("output_tokens", 0) or 0)
+
+
+_PERCENT_RE = re.compile(r"(\d)\s+%")
+
+
+def _tidy_text(text: str) -> str:
+    """Pequenos acertos tipográficos que o modelo não segue de forma estável.
+
+    Hífens tipográficos (U+2010, U+2011) viram o hífen comum: alguns modelos
+    escrevem "e‑mail" com o hífen inseparável, que aparece como um traço diferente
+    em terminais e no Streamlit. Percentuais ficam sem espaço ("5%", não "5 %"),
+    como se escreve em português."""
+    text = text.replace("\u2010", "-").replace("\u2011", "-")
+    return _PERCENT_RE.sub(r"\1%", text)
+
+
+# Scripts em lote (avaliação, exemplos) rodam dezenas de conversas seguidas e
+# esbarram na cota diária gratuita. Quando o provedor não diz quanto esperar,
+# usamos este intervalo entre tentativas.
+DEFAULT_QUOTA_WAIT = 600.0
+
+
+def reply_when_quota_allows(
+    agent: Agent,
+    history: list[BaseMessage],
+    user_text: str,
+    max_wait: float,
+    sleep: Callable[[float], None] = time.sleep,
+    log: Callable[[str], None] = print,
+) -> AgentReply:
+    """Como `agent.reply`, mas quando toda a cadeia de modelos está sem cota espera o
+    tempo que o provedor pede (ou DEFAULT_QUOTA_WAIT) e tenta de novo, até somar
+    `max_wait` segundos. Outros erros sobem na hora."""
+    waited = 0.0
+    while True:
+        try:
+            return agent.reply(history, user_text)
+        except Exception as exc:  # noqa: BLE001 - só esperamos em erro de cota
+            if not is_fallback_error(exc):
+                raise
+            wait = retry_after_seconds(exc) or DEFAULT_QUOTA_WAIT
+            wait += 5.0  # margem para o relógio do provedor
+            if waited + wait > max_wait:
+                raise
+            log(f"sem cota ({agent.model_name}); aguardando {wait:.0f}s")
+            sleep(wait)
+            waited += wait
+            # Durante a espera todos os modelos reencheram; a nova tentativa começa
+            # do principal em vez de ficar presa no último que falhou.
+            agent.active_index = 0
