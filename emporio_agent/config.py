@@ -25,11 +25,27 @@ CSV_FILES = {
     "promotions": DATA_DIR / "promotions.csv",
 }
 
-DEFAULT_MODEL = "claude-haiku-5-5"
+# Provedores suportados e modelo padrão de cada um.
+DEFAULT_MODELS = {
+    "anthropic": "claude-haiku-5-5",
+    "groq": "openai/gpt-oss-120b",
+}
+
+
+def provider() -> str:
+    """ "anthropic" ou "groq". Sem EMPORIO_PROVIDER, deduz pela chave presente."""
+    explicit = os.environ.get("EMPORIO_PROVIDER", "").strip().lower()
+    if explicit:
+        return explicit
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic"
+    if os.environ.get("GROQ_API_KEY"):
+        return "groq"
+    return "anthropic"
 
 
 def model_name() -> str:
-    return os.environ.get("EMPORIO_MODEL", DEFAULT_MODEL)
+    return os.environ.get("EMPORIO_MODEL") or DEFAULT_MODELS.get(provider(), "")
 
 
 def reference_date() -> date:

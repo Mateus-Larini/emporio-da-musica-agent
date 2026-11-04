@@ -16,7 +16,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 
-from emporio_agent.config import model_name, reference_now
+from emporio_agent.config import model_name, provider, reference_now
 from emporio_agent.data.repository import Repository
 from emporio_agent.prompts import system_prompt
 from emporio_agent.tools import build_tools
@@ -44,11 +44,18 @@ class AgentReply:
 
 
 def default_model() -> BaseChatModel:
+    """Instancia o modelo do provedor configurado (.env)."""
+    name = model_name()
+    if provider() == "groq":
+        from langchain_groq import ChatGroq
+
+        return ChatGroq(model=name, max_tokens=2048, temperature=0.3, max_retries=3)
+
     from langchain_anthropic import ChatAnthropic
 
     # Haiku 5.5: thinking fica ligado por padrão; "low" é suficiente para
     # escolher ferramentas e redigir uma mensagem de WhatsApp.
-    return ChatAnthropic(model=model_name(), max_tokens=2048, effort="low", max_retries=3)
+    return ChatAnthropic(model=name, max_tokens=2048, effort="low", max_retries=3)
 
 
 class Agent:
