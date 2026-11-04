@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -79,13 +80,31 @@ class Order:
 
 
 class Repository:
+    """Acesso somente leitura ao banco.
+
+    Mantém uma conexão SQLite por thread: o SQLite não permite usar a mesma
+    conexão em threads diferentes, e interfaces como o Streamlit executam cada
+    requisição em uma thread própria.
+    """
+
     def __init__(self, db_path: Path = DB_PATH):
-        ensure_database(db_path)
-        self._conn = sqlite3.connect(db_path)
-        self._conn.row_factory = sqlite3.Row
+        self.db_path = ensure_database(db_path)
+        self._local = threading.local()
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            self._local.conn = conn
+        return conn
 
     def close(self) -> None:
-        self._conn.close()
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None
 
     # ---- categorias -------------------------------------------------------
 
