@@ -137,9 +137,19 @@ def _order_payload(repo: Repository, order: Order, now: datetime) -> dict:
     return payload
 
 
-def _identify(repo: Repository, telefone: str | None, email: str | None) -> list[int] | None:
+INCOMPLETE_PHONE = (
+    "Telefone incompleto. Repasse o número completo com DDD, exatamente como o cliente "
+    "escreveu (ex.: (67) 99812-3456)."
+)
+
+
+def _identify(repo: Repository, telefone: str | None, email: str | None) -> list[int] | str | None:
+    """Ids de clientes que batem com telefone/e-mail. None sem dados; str com a
+    mensagem de erro quando o telefone veio truncado (menos de 8 dígitos)."""
     if not telefone and not email:
         return None
+    if telefone and len("".join(ch for ch in telefone if ch.isdigit())) < 8 and not email:
+        return INCOMPLETE_PHONE
     customers = repo.find_customers(phone=telefone or None, email=email or None)
     return [c.customer_id for c in customers]
 
@@ -174,12 +184,20 @@ class DetalharProdutoArgs(BaseModel):
 
 class ConsultarPedidoArgs(BaseModel):
     numero_pedido: int = Field(description="Número do pedido informado pelo cliente.")
-    telefone: str | None = Field(default=None, description="Telefone cadastrado do cliente.")
+    telefone: str | None = Field(
+        default=None,
+        description="Telefone cadastrado do cliente, completo e com DDD, copiado como o "
+        "cliente escreveu (ex.: (67) 99812-3456).",
+    )
     email: str | None = Field(default=None, description="E-mail cadastrado do cliente.")
 
 
 class PedidosDoClienteArgs(BaseModel):
-    telefone: str | None = Field(default=None, description="Telefone cadastrado do cliente.")
+    telefone: str | None = Field(
+        default=None,
+        description="Telefone cadastrado do cliente, completo e com DDD, copiado como o "
+        "cliente escreveu (ex.: (67) 99812-3456).",
+    )
     email: str | None = Field(default=None, description="E-mail cadastrado do cliente.")
 
 
@@ -295,6 +313,8 @@ def build_tools(repo: Repository, now_fn: Callable[[], datetime] = reference_now
                     "cadastrado no pedido antes de consultar (proteção de dados, LGPD)."
                 }
             )
+        if isinstance(ids, str):
+            return _json({"erro": ids})
         order = repo.get_order(numero_pedido)
         if order is None:
             return _json({"erro": f"Pedido {numero_pedido} não encontrado."})
@@ -311,6 +331,8 @@ def build_tools(repo: Repository, now_fn: Callable[[], datetime] = reference_now
         ids = _identify(repo, telefone, email)
         if ids is None:
             return _json({"erro": "Informe telefone ou e-mail cadastrado para localizar pedidos."})
+        if isinstance(ids, str):
+            return _json({"erro": ids})
         if not ids:
             return _json({"erro": "Nenhum cliente encontrado com esses dados."})
         result = []
