@@ -10,6 +10,8 @@ dependencies = [
     "langchain-groq>=0.3",
     "pypdf>=5",
     "python-dotenv>=1",
+    "rich>=13",
+    "streamlit>=1.40",
 ]
 
 [dependency-groups]
@@ -17,6 +19,9 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
 ]
+
+[project.scripts]
+emporio = "emporio_agent.cli:main"
 
 [build-system]
 requires = ["hatchling"]

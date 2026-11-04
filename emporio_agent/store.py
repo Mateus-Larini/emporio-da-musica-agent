@@ -14,7 +14,7 @@ STORE = {
     "slogan": "Sua música começa aqui.",
     "razao_social": "Empório da Música Instrumentos Musicais Ltda.",
     "cnpj": "12.345.678/0001-90",
-    "endereco": "Rua 14 de Maio, 3200 — Centro, Campo Grande - MS, CEP 79202-333",
+    "endereco": "Rua 14 de Maio, 3200, Centro, Campo Grande, MS, CEP 79202-333",
     "telefone": "(67) 3341-4444",
     "whatsapp": "(67) 3321-4500",
     "email": "contato@emporiodamusica.com.br",
