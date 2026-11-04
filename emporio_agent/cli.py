@@ -20,7 +20,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from emporio_agent.agent import Agent, AgentReply, provider_error_text
-from emporio_agent.config import model_name, provider, reference_now
+from emporio_agent.config import model_names, provider, reference_now
 from emporio_agent.memory import SessionStore
 
 console = Console()
@@ -41,9 +41,15 @@ def _print_trace(reply: AgentReply) -> None:
     console.print("\n".join(lines))
 
 
+def _print_model(reply: AgentReply) -> None:
+    if reply.model:
+        console.print(f"[dim]modelo: {reply.model}[/dim]")
+
+
 def _print_reply(reply: AgentReply, show_trace: bool) -> None:
     if show_trace:
         _print_trace(reply)
+        _print_model(reply)
     console.print(Panel(Markdown(reply.text), title="Empório da Música", border_style="cyan"))
 
 
@@ -68,7 +74,7 @@ def run_interactive(agent: Agent, store: SessionStore, session_id: str, show_tra
     console.print(
         Panel(
             f"Sessão [bold]{session_id}[/bold] com {len(history)} mensagens salvas. "
-            f"Provedor {provider()} / modelo {model_name()}. "
+            f"Provedor {provider()} / modelos {' > '.join(model_names())}. "
             f"Data de referência {reference_now():%d/%m/%Y}.\n"
             "Comandos: /sair, /limpar (apaga a sessão), /rastro (liga/desliga ferramentas).",
             title="Atendimento Empório da Música",

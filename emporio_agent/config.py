@@ -26,9 +26,12 @@ CSV_FILES = {
 }
 
 # Provedores suportados e modelo padrão de cada um.
+# Ordem de tentativa por provedor. Se o primeiro falhar por cota, indisponibilidade
+# ou nome inválido, o agente passa ao seguinte. No Groq cada modelo tem cota
+# diária própria, então a cadeia estende o uso gratuito.
 DEFAULT_MODELS = {
-    "anthropic": "claude-haiku-5-5",
-    "groq": "openai/gpt-oss-120b",
+    "anthropic": ["claude-haiku-5-5"],
+    "groq": ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"],
 }
 
 
@@ -44,8 +47,30 @@ def provider() -> str:
     return "anthropic"
 
 
+def model_names() -> list[str]:
+    """Modelos a tentar, em ordem.
+
+    EMPORIO_MODEL define o principal; EMPORIO_MODEL_FALLBACKS (separados por
+    vírgula) os seguintes. Sem as variáveis, usa a cadeia padrão do provedor.
+    """
+    primary = os.environ.get("EMPORIO_MODEL", "").strip()
+    fallbacks = [m.strip() for m in os.environ.get("EMPORIO_MODEL_FALLBACKS", "").split(",")]
+    fallbacks = [m for m in fallbacks if m]
+    if primary or fallbacks:
+        chain = ([primary] if primary else []) + fallbacks
+    else:
+        chain = list(DEFAULT_MODELS.get(provider(), []))
+    seen: list[str] = []
+    for name in chain:
+        if name not in seen:
+            seen.append(name)
+    return seen
+
+
 def model_name() -> str:
-    return os.environ.get("EMPORIO_MODEL") or DEFAULT_MODELS.get(provider(), "")
+    """Modelo principal (primeiro da cadeia)."""
+    names = model_names()
+    return names[0] if names else ""
 
 
 def reference_date() -> date:

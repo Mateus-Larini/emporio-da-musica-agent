@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from emporio_agent.agent import FALLBACK_TEXT, Agent
@@ -102,3 +103,59 @@ def test_greeting_follows_reference_hour():
     assert greeting(datetime(2026, 3, 25, 8, 0)) == "Bom dia"
     assert greeting(datetime(2026, 3, 25, 14, 0)) == "Boa tarde"
     assert greeting(datetime(2026, 3, 25, 19, 30)) == "Boa noite"
+
+
+class FailingModel:
+    """Modelo falso que sempre falha com o erro informado."""
+
+    def __init__(self, exc: Exception):
+        self.exc = exc
+        self.calls = 0
+
+    def bind_tools(self, tools):
+        return self
+
+    def invoke(self, messages):
+        self.calls += 1
+        raise self.exc
+
+
+class RateLimited(Exception):
+    status_code = 429
+
+
+class BadRequest(Exception):
+    status_code = 400
+
+
+def test_agent_falls_back_to_next_model_on_rate_limit(repo: Repository):
+    broken = FailingModel(RateLimited("429 rate limit"))
+    good = ScriptedModel([AIMessage(content="Respondi pelo segundo modelo.")])
+    agent = Agent(models=[broken, good], repo=repo, now_fn=lambda: NOW)
+    reply = agent.reply([], "oi")
+    assert reply.text == "Respondi pelo segundo modelo."
+    assert broken.calls == 1
+    # o segundo passa a ser o ativo: a próxima mensagem não bate mais no quebrado
+    good.replies.append(AIMessage(content="De novo pelo segundo."))
+    agent.reply([], "oi de novo")
+    assert broken.calls == 1
+
+
+def test_agent_does_not_fall_back_on_client_error(repo: Repository):
+    broken = FailingModel(BadRequest("400 bad request"))
+    good = ScriptedModel([AIMessage(content="nunca")])
+    agent = Agent(models=[broken, good], repo=repo, now_fn=lambda: NOW)
+    with pytest.raises(BadRequest):
+        agent.reply([], "oi")
+
+
+def test_model_names_from_env(monkeypatch: pytest.MonkeyPatch):
+    from emporio_agent.config import model_names
+
+    monkeypatch.setenv("EMPORIO_PROVIDER", "groq")
+    monkeypatch.delenv("EMPORIO_MODEL", raising=False)
+    monkeypatch.delenv("EMPORIO_MODEL_FALLBACKS", raising=False)
+    assert model_names()[0] == "openai/gpt-oss-120b" and len(model_names()) == 3
+    monkeypatch.setenv("EMPORIO_MODEL", "a")
+    monkeypatch.setenv("EMPORIO_MODEL_FALLBACKS", "b, c,a")
+    assert model_names() == ["a", "b", "c"]
