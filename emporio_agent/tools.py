@@ -55,6 +55,15 @@ def _product_payload(repo: Repository, product: Product, detailed: bool = False)
             "nome": quote.promo_description,
             "desconto_percentual": quote.promo_percent,
             "preco_promocional": quote.promo_price,
+            # Seção 6.2 do manual: preço promocional sempre acompanhado do preço
+            # original e do percentual. A frase pronta evita omissões na resposta.
+            "apresentar_como": (
+                f"de R$ {quote.list_price:,.2f} por R$ {quote.promo_price:,.2f} "
+                f"({quote.promo_percent:g}% off)"
+            )
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", "."),
             "observacao": "Desconto PIX de 5% NÃO se aplica sobre preço promocional.",
         }
     payload["preco_pix"] = quote.pix_price
@@ -183,7 +192,11 @@ class ConsultarPoliticasArgs(BaseModel):
 
 class SimularPagamentoArgs(BaseModel):
     valor_total: float = Field(gt=0, description="Valor total da compra em reais.")
-    cidade: str | None = Field(default=None, description="Cidade de entrega, se informada.")
+    cidade: str | None = Field(
+        default=None,
+        description="Opcional. Só influencia o frete; para parcelamento ou PIX não é "
+        "necessária, chame sem ela.",
+    )
     produto_em_promocao: bool = Field(
         default=False, description="True se o valor já é promocional (PIX não desconta)."
     )

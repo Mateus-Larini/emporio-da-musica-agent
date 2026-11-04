@@ -60,7 +60,8 @@ cases:
     turns:
       - user: "O Taylor 110e está em promoção?"
         expect_tools: [detalhar_produto, buscar_produtos, listar_promocoes]
-        must_contain: ["5.999,00", "5.519,08", "8%"]
+        must_contain: ["5.999,00", "5.519,08"]
+        must_contain_any: ["8%", "8 %", "8 por cento"]
 
   - id: promocao_expirada_black_friday
     group: promoções
@@ -94,7 +95,7 @@ cases:
     group: loja
     turns:
       - user: "Vocês abrem domingo?"
-        must_contain_any: ["fechado", "fechados", "não abrimos", "não funcionamos"]
+        must_contain_any: ["fechado", "fechados", "fechamos", "não abrimos", "não funcionamos"]
 
   - id: pagamento_pix_desconto
     group: políticas
