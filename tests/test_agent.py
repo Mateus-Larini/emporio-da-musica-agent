@@ -159,3 +159,89 @@ def test_model_names_from_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("EMPORIO_MODEL", "a")
     monkeypatch.setenv("EMPORIO_MODEL_FALLBACKS", "b, c,a")
     assert model_names() == ["a", "b", "c"]
+
+
+def test_retry_after_seconds_parses_groq_messages():
+    from emporio_agent.agent import retry_after_seconds
+
+    assert retry_after_seconds(Exception("Please try again in 2.5s.")) == 2.5
+    assert retry_after_seconds(Exception("Please try again in 250ms.")) == 0.25
+    assert retry_after_seconds(Exception("try again in 1m2s")) == 62.0
+    assert retry_after_seconds(Exception("rate limit")) is None
+
+
+class FlakyModel:
+    """Falha uma vez com o erro informado e depois responde."""
+
+    def __init__(self, exc: Exception, reply: AIMessage):
+        self.exc = exc
+        self.reply = reply
+        self.calls = 0
+
+    def bind_tools(self, tools):
+        return self
+
+    def invoke(self, messages):
+        self.calls += 1
+        if self.calls == 1:
+            raise self.exc
+        return self.reply
+
+
+def test_agent_waits_out_short_rate_limit_before_falling_back(repo: Repository):
+    flaky = FlakyModel(RateLimited("429 Please try again in 3s."), AIMessage(content="Principal."))
+    backup = ScriptedModel([AIMessage(content="Reserva.")])
+    agent = Agent(models=[flaky, backup], repo=repo, now_fn=lambda: NOW)
+    waits: list[float] = []
+    agent.sleep = waits.append
+    assert agent.reply([], "oi").text == "Principal."
+    assert flaky.calls == 2 and waits == [3.5] and agent.active_index == 0
+
+
+def test_agent_skips_long_rate_limit_without_waiting(repo: Repository):
+    broken = FailingModel(RateLimited("429 Please try again in 2h13m."))
+    backup = ScriptedModel([AIMessage(content="Reserva.")])
+    agent = Agent(models=[broken, backup], repo=repo, now_fn=lambda: NOW)
+    waits: list[float] = []
+    agent.sleep = waits.append
+    assert agent.reply([], "oi").text == "Reserva."
+    assert waits == [] and broken.calls == 1
+
+
+def test_reply_uses_plain_hyphens(repo: Repository):
+    model = ScriptedModel([AIMessage(content="Me passe o e\u2011mail.")])
+    agent = Agent(model=model, repo=repo, now_fn=lambda: NOW)
+    assert agent.reply([], "oi").text == "Me passe o e-mail."
+
+
+def test_reply_when_quota_allows_waits_and_retries(repo: Repository):
+    from emporio_agent.agent import reply_when_quota_allows
+
+    class ExhaustedThenOk:
+        def __init__(self):
+            self.calls = 0
+
+        def bind_tools(self, tools):
+            return self
+
+        def invoke(self, messages):
+            self.calls += 1
+            if self.calls < 3:
+                raise RateLimited("429 tokens per day. Please try again in 2m0s.")
+            return AIMessage(content="Voltou.")
+
+    model = ExhaustedThenOk()
+    agent = Agent(model=model, repo=repo, now_fn=lambda: NOW)
+    waits: list[float] = []
+    reply = reply_when_quota_allows(
+        agent, [], "oi", max_wait=600, sleep=waits.append, log=lambda _: None
+    )
+    assert reply.text == "Voltou." and waits == [125.0, 125.0]
+
+    # acima do teto de espera o erro sobe
+    model = ExhaustedThenOk()
+    agent = Agent(model=model, repo=repo, now_fn=lambda: NOW)
+    with pytest.raises(RateLimited):
+        reply_when_quota_allows(
+            agent, [], "oi", max_wait=100, sleep=waits.append, log=lambda _: None
+        )
