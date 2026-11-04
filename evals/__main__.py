@@ -20,6 +20,7 @@ from rich.table import Table
 
 from emporio_agent.agent import Agent
 from emporio_agent.config import model_names, provider, reference_now
+from emporio_agent.privacy import mask_text
 from evals import CASES_PATH, CaseResult, TurnResult, check_turn, load_cases
 
 REPORT_PATH = Path(__file__).with_name("results.md")
@@ -92,12 +93,12 @@ def write_report(results: list[CaseResult], path: Path) -> None:
         lines.append(f"### {r.case_id} ({'ok' if r.passed else 'FALHOU'})")
         lines.append("")
         for turn in r.turns:
-            lines.append(f"**Cliente:** {turn.user}")
+            lines.append(f"**Cliente:** {mask_text(turn.user)}")
             lines.append("")
             if turn.tools:
                 lines.append(f"_ferramentas: {', '.join(turn.tools)}_")
                 lines.append("")
-            lines.append("**Agente:** " + turn.reply.replace("\n", "  \n"))
+            lines.append("**Agente:** " + mask_text(turn.reply).replace("\n", "  \n"))
             lines.append("")
             for failure in turn.failures:
                 lines.append(f"- falha: {failure}")

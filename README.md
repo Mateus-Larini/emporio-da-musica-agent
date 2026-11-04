@@ -11,15 +11,16 @@ frete, pagamento) e recusa com educação o que foge do escopo.
 Cliente: Me arrependi da minha compra, posso devolver meu pedido?
 Agente:  Para eu verificar, preciso do número do pedido e do telefone ou e-mail cadastrado.
 
-Cliente: Pedido 7, telefone (67) 99789-0123
-         [consultar_pedido(numero_pedido=7, telefone="(67) 99789-0123")]
+Cliente: Pedido 7, telefone (67) 9****-0123
 Agente:  Letícia, seu pedido 7 foi entregue em 17/02/2026. O prazo de arrependimento
          (7 dias após o recebimento) terminou em 24/02/2026, então não cabe mais
          devolução por arrependimento. Se o violão apresentar defeito de fabricação,
          a garantia legal de 90 dias vale até 18/05/2026. [...]
 ```
 
-Mais conversas em [`examples/`](examples/). Resultado da avaliação automática em
+Antes de responder, o agente consultou o pedido e só o exibiu porque o telefone
+conferia com o cadastro. Mais conversas em [`examples/`](examples/), cada uma com uma
+seção "Bastidores" mostrando o que foi consultado. Resultado da avaliação automática em
 [`evals/results.md`](evals/results.md).
 
 ---
@@ -42,6 +43,7 @@ cp .env.example .env         # edite e coloque sua chave (GROQ_API_KEY ou ANTHRO
 | Chat no terminal | `uv run emporio` |
 | Chat no navegador | `uv run streamlit run app.py` e abra http://localhost:8501 |
 | Pergunta única, sem interação | `uv run emporio --pergunta "Quanto custa o Takamine GD20?"` |
+| Ver as ferramentas chamadas (visão de desenvolvedor) | `uv run emporio --rastro` |
 | Testes (sem chamar API) | `uv run pytest` |
 | Avaliação contra o modelo | `uv run python -m evals` |
 | Regenerar as conversas de exemplo | `uv run python examples/generate.py` |
