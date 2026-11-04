@@ -172,7 +172,7 @@ class Agent:
             new_messages.append(ai)
             self._accumulate_usage(usage, ai)
 
-        text = _plain_hyphens((ai.text or "").strip()) if ai is not None else ""
+        text = _tidy_text((ai.text or "").strip()) if ai is not None else ""
         return AgentReply(
             text=text or FALLBACK_TEXT,
             tool_calls=traces,
@@ -244,13 +244,18 @@ class Agent:
         usage["output_tokens"] += int(meta.get("output_tokens", 0) or 0)
 
 
-def _plain_hyphens(text: str) -> str:
-    """Troca hífens tipográficos (U+2010, U+2011) pelo hífen comum.
+_PERCENT_RE = re.compile(r"(\d)\s+%")
 
-    Alguns modelos escrevem "e‑mail" com o hífen inseparável; em terminais e no
-    Streamlit ele aparece como um traço diferente, e o guia de estilo pede só
-    pontuação simples."""
-    return text.replace("\u2010", "-").replace("\u2011", "-")
+
+def _tidy_text(text: str) -> str:
+    """Pequenos acertos tipográficos que o modelo não segue de forma estável.
+
+    Hífens tipográficos (U+2010, U+2011) viram o hífen comum: alguns modelos
+    escrevem "e‑mail" com o hífen inseparável, que aparece como um traço diferente
+    em terminais e no Streamlit. Percentuais ficam sem espaço ("5%", não "5 %"),
+    como se escreve em português."""
+    text = text.replace("\u2010", "-").replace("\u2011", "-")
+    return _PERCENT_RE.sub(r"\1%", text)
 
 
 # Scripts em lote (avaliação, exemplos) rodam dezenas de conversas seguidas e

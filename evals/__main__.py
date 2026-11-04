@@ -3,6 +3,7 @@
     uv run python -m evals                 roda tudo e grava evals/results.md
     uv run python -m evals --only pedido_  só casos cujo id contém o texto
     uv run python -m evals --no-report     não grava o relatório
+    uv run python -m evals --only x --report evals/reexecucao.md   relatório em outro arquivo
     uv run python -m evals --wait 120      espera até 120 min por cota em cada chamada
 
 Cada caso começa com histórico vazio. Usa o mesmo Agent da CLI e da UI.
@@ -121,6 +122,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--wait", type=float, default=0, help="minutos máximos de espera por cota em cada chamada"
     )
+    parser.add_argument(
+        "--report", type=Path, default=REPORT_PATH, help="arquivo do relatório (padrão: results.md)"
+    )
     args = parser.parse_args(argv)
 
     cases, forbidden = load_cases(CASES_PATH)
@@ -155,8 +159,8 @@ def main(argv: list[str] | None = None) -> int:
         f"\n[bold]{passed}/{len(results)} casos aprovados ({passed / len(results):.0%})[/bold]"
     )
     if not args.no_report:
-        write_report(results, REPORT_PATH)
-        console.print(f"[dim]relatório em {REPORT_PATH}[/dim]")
+        write_report(results, args.report)
+        console.print(f"[dim]relatório em {args.report}[/dim]")
     return 0 if passed == len(results) else 1
 
 

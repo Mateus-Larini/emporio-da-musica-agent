@@ -209,9 +209,9 @@ def test_agent_skips_long_rate_limit_without_waiting(repo: Repository):
 
 
 def test_reply_uses_plain_hyphens(repo: Repository):
-    model = ScriptedModel([AIMessage(content="Me passe o e\u2011mail.")])
+    model = ScriptedModel([AIMessage(content="Me passe o e\u2011mail. PIX tem 5 % off.")])
     agent = Agent(model=model, repo=repo, now_fn=lambda: NOW)
-    assert agent.reply([], "oi").text == "Me passe o e-mail."
+    assert agent.reply([], "oi").text == "Me passe o e-mail. PIX tem 5% off."
 
 
 def test_reply_when_quota_allows_waits_and_retries(repo: Repository):
