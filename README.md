@@ -238,8 +238,15 @@ O enunciado pede para assumir interpretações razoáveis e documentá-las.
 - **Avaliação com modelo real** (`uv run python -m evals`): 25 casos em
   [`evals/cases.yaml`](evals/cases.yaml), cada um com a ferramenta esperada e trechos
   que a resposta deve ou não conter (preço correto, código de rastreio, ausência de
-  promessas como "reservar" ou "nosso site"). O relatório com transcrições fica em
-  [`evals/results.md`](evals/results.md).
+  promessas como "reservar" ou "nosso site"). Última execução completa: **22 de 25
+  casos aprovados (88%)**, relatório com transcrições em
+  [`evals/results.md`](evals/results.md). Das três falhas, uma era do próprio caso
+  (aceitava "fechado" mas não "fechada"), uma de formatação ("5 %" em vez de "5%") e
+  uma de completude (ao negar o arrependimento, o agente não citou a garantia legal
+  ainda aberta). As três foram corrigidas em seguida (normalização de "5 %" coberta
+  por teste unitário, caso ampliado, regra de prompt para citar os prazos ainda
+  abertos); a reexecução desses casos com o modelo real ficou limitada pela cota
+  gratuita do dia.
 - **Conversas de exemplo** (`examples/`): 5 roteiros gerados pela CLI e revisados, com
   as ferramentas chamadas em cada turno.
 
