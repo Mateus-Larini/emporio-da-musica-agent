@@ -245,8 +245,8 @@ O enunciado pede para assumir interpretações razoáveis e documentá-las.
   uma de completude (ao negar o arrependimento, o agente não citou a garantia legal
   ainda aberta). As três foram corrigidas em seguida (normalização de "5 %" coberta
   por teste unitário, caso ampliado, regra de prompt para citar os prazos ainda
-  abertos); a reexecução desses casos com o modelo real ficou limitada pela cota
-  gratuita do dia.
+  abertos) e reexecutadas com o modelo real: 3 de 3 aprovadas, transcrições em
+  [`evals/results_reexecucao.md`](evals/results_reexecucao.md).
 - **Conversas de exemplo** (`examples/`): 5 roteiros gerados pela CLI e revisados, com
   as ferramentas chamadas em cada turno.
 
