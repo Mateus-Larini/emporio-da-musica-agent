@@ -144,3 +144,10 @@ def test_janelas_trazem_condicoes_proprias(tools, repo: Repository):
     janelas = {j["tipo"]: j for j in out["prazos_troca_devolucao"]["janelas"]}
     assert "compras online" in janelas["arrependimento"]["condicoes"]
     assert "defeito de fabricação" in janelas["troca por defeito"]["condicoes"]
+
+
+def test_telefone_truncado_pede_numero_completo(tools):
+    out = call(tools, "consultar_pedido", numero_pedido=7, telefone="67")
+    assert "incompleto" in out["erro"] and "itens" not in out
+    out = call(tools, "pedidos_do_cliente", telefone="(67)")
+    assert "incompleto" in out["erro"]
