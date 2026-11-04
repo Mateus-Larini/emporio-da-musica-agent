@@ -7,6 +7,7 @@ ferramentas foram chamadas, com quais argumentos e o que devolveram.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -125,7 +126,14 @@ class Agent:
         try:
             return str(tool.invoke(args))
         except Exception as exc:  # noqa: BLE001 - o erro volta ao modelo, não derruba o chat
-            return f'{{"erro": "falha ao executar {name}: {exc}"}}'
+            return json.dumps(
+                {
+                    "erro": f"falha ao executar {name}: {exc}",
+                    "instrucao": "Não repita a mesma chamada. Informe ao cliente que houve "
+                    "um problema técnico momentâneo e ofereça o WhatsApp da equipe.",
+                },
+                ensure_ascii=False,
+            )
 
     @staticmethod
     def _accumulate_usage(usage: dict[str, int], ai: AIMessage) -> None:
