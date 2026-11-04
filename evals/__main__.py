@@ -2,6 +2,7 @@
 
     uv run python -m evals                 roda tudo e grava evals/results.md
     uv run python -m evals --only pedido_  só casos cujo id contém o texto
+    uv run python -m evals --only a,b      vários trechos separados por vírgula
     uv run python -m evals --no-report     não grava o relatório
     uv run python -m evals --only x --report evals/reexecucao.md   relatório em outro arquivo
     uv run python -m evals --wait 120      espera até 120 min por cota em cada chamada
@@ -117,7 +118,9 @@ def write_report(results: list[CaseResult], path: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="evals", description=__doc__.split("\n\n")[0])
-    parser.add_argument("--only", default="", help="roda só casos cujo id contém este texto")
+    parser.add_argument(
+        "--only", default="", help="roda só casos cujo id contém um destes textos (vírgula separa)"
+    )
     parser.add_argument("--no-report", action="store_true", help="não grava evals/results.md")
     parser.add_argument(
         "--wait", type=float, default=0, help="minutos máximos de espera por cota em cada chamada"
@@ -129,7 +132,8 @@ def main(argv: list[str] | None = None) -> int:
 
     cases, forbidden = load_cases(CASES_PATH)
     if args.only:
-        cases = [c for c in cases if args.only in c["id"]]
+        wanted = [part.strip() for part in args.only.split(",") if part.strip()]
+        cases = [c for c in cases if any(part in c["id"] for part in wanted)]
     if not cases:
         console.print("[red]nenhum caso selecionado[/red]")
         return 2

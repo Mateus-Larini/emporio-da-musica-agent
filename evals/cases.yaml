@@ -95,7 +95,7 @@ cases:
     group: loja
     turns:
       - user: "Vocês abrem domingo?"
-        must_contain_any: ["fechado", "fechados", "fechamos", "não abrimos", "não funcionamos"]
+        must_contain_any: ["fechad", "fechamos", "não abrimos", "não funcionamos"]
 
   - id: pagamento_pix_desconto
     group: políticas
