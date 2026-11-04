@@ -248,10 +248,11 @@ class Repository:
         params: list[object] = []
         if phone:
             digits = "".join(ch for ch in phone if ch.isdigit())
-            if digits:
-                # Aceita com ou sem DDD/código do país: compara o sufixo.
-                where.append("phone_digits LIKE ?")
-                params.append(f"%{digits[-8:]}")
+            if len(digits) < 8:
+                return []  # curto demais para identificar alguém com segurança
+            # Aceita com ou sem DDD/código do país: compara os 8 dígitos finais.
+            where.append("phone_digits LIKE ?")
+            params.append(f"%{digits[-8:]}")
         if email:
             where.append("email_norm = ?")
             params.append(email.strip().lower())
