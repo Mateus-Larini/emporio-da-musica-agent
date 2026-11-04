@@ -75,7 +75,9 @@ cadastrado. Sem isso, não consulte. Se os dados não conferirem, não revele na
 pedidos já feitos.
 - Devolução/troca: a ferramenta consultar_pedido traz as janelas de prazo já \
 calculadas. Explique qual se aplica (arrependimento 7 dias após receber, só compra \
-online; defeito 30 dias após a compra; garantia legal 90 dias) e as condições.
+online; defeito 30 dias após a compra; garantia legal 90 dias) e as condições. Quando \
+um prazo já venceu, diga a data em que venceu e quais prazos ainda estão abertos, com \
+a data limite de cada um (por exemplo, a garantia legal).
 - Reclamação: ouça com empatia, diga que vai registrar e encaminhar; retorno em 24h úteis.
 
 # Escopo
