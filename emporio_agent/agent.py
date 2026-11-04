@@ -44,6 +44,19 @@ class AgentReply:
     usage: dict[str, int] = field(default_factory=dict)
 
 
+def provider_error_text(exc: Exception) -> str:
+    """Mensagem para o usuário quando o provedor do modelo falha."""
+    message = str(exc)
+    if "429" in message or "rate_limit" in message.lower():
+        return (
+            "O serviço do modelo atingiu o limite de uso por enquanto. Tente de novo em "
+            "alguns minutos ou troque o modelo em EMPORIO_MODEL no arquivo .env."
+        )
+    if "401" in message or "api key" in message.lower() or "api_key" in message.lower():
+        return "Chave da API ausente ou inválida. Confira o arquivo .env (veja .env.example)."
+    return f"Não consegui falar com o modelo agora ({type(exc).__name__}). Tente novamente."
+
+
 def default_model() -> BaseChatModel:
     """Instancia o modelo do provedor configurado (.env)."""
     name = model_name()

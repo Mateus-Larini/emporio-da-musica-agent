@@ -14,7 +14,7 @@ import json
 import streamlit as st
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
-from emporio_agent.agent import Agent
+from emporio_agent.agent import Agent, provider_error_text
 from emporio_agent.config import model_name, provider, reference_now
 from emporio_agent.memory import SessionStore
 
@@ -116,10 +116,14 @@ if prompt := st.chat_input("Escreva sua mensagem..."):
     with st.chat_message("user"):
         st.write(prompt)
     with st.chat_message("assistant"):
-        with st.spinner("Consultando..."):
-            reply = get_agent().reply(history, prompt)
-        store.append(session_id, reply.new_messages)
-        _render_tools(
-            [{"name": t.name, "args": t.args, "result": t.result} for t in reply.tool_calls]
-        )
-        _render_text(reply.text)
+        try:
+            with st.spinner("Consultando..."):
+                reply = get_agent().reply(history, prompt)
+        except Exception as exc:  # noqa: BLE001 - erro do provedor vira aviso na tela
+            st.warning(provider_error_text(exc))
+        else:
+            store.append(session_id, reply.new_messages)
+            _render_tools(
+                [{"name": t.name, "args": t.args, "result": t.result} for t in reply.tool_calls]
+            )
+            _render_text(reply.text)
