@@ -35,10 +35,11 @@ def _render_text(text: str) -> None:
     """Mostra a resposta preservando as quebras de linha.
 
     O agente escreve texto puro, um produto por linha. O Markdown do Streamlit
-    juntaria essas linhas em um parágrafo; dois espaços antes da quebra forçam a
-    quebra de linha.
+    juntaria essas linhas em um parágrafo (dois espaços antes da quebra forçam a
+    quebra) e trataria o trecho entre dois cifrões como fórmula matemática,
+    sumindo com o "R$" dos preços (o cifrão precisa ser escapado).
     """
-    st.markdown(text.replace("\n", "  \n"))
+    st.markdown(text.replace("$", "\\$").replace("\n", "  \n"))
 
 
 def _render_tools(calls: list[dict]) -> None:
