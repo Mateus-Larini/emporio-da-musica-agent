@@ -67,6 +67,13 @@ def build_model(name: str) -> BaseChatModel:
         # limite por minuto da cota gratuita do Groq em todos os modelos da cadeia.
         return ChatGroq(model=name, max_tokens=1000, temperature=0.3, max_retries=2)
 
+    if provider() == "google":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        return ChatGoogleGenerativeAI(
+            model=name, max_output_tokens=1000, temperature=0.3, max_retries=2
+        )
+
     from langchain_anthropic import ChatAnthropic
 
     # Haiku 5.5: thinking fica ligado por padrão; "low" é suficiente para
