@@ -63,7 +63,9 @@ def build_model(name: str) -> BaseChatModel:
     if provider() == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(model=name, max_tokens=2048, temperature=0.3, max_retries=2)
+        # 1000 tokens de saída bastam para uma mensagem de WhatsApp e respeitam o
+        # limite por minuto da cota gratuita do Groq em todos os modelos da cadeia.
+        return ChatGroq(model=name, max_tokens=1000, temperature=0.3, max_retries=2)
 
     from langchain_anthropic import ChatAnthropic
 
