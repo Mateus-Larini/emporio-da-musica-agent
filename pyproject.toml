@@ -4,7 +4,13 @@ version = "0.1.0"
 description = "Agente de atendimento da Empório da Música (desafio técnico Artefact)"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "langchain-anthropic>=0.3",
+    "langchain-core>=0.3",
+    "langchain-groq>=0.3",
+    "pypdf>=5",
+    "python-dotenv>=1",
+]
 
 [dependency-groups]
 dev = [

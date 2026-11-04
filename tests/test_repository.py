@@ -26,6 +26,10 @@ def test_find_product_by_name(repo: Repository):
     assert p is not None and p.product_id == 95 and p.price_brl == 2199
     assert repo.find_product_by_name("stratocaster").product_id == 145
     assert repo.find_product_by_name("xyz inexistente") is None
+    # erros de digitação caem no fallback de similaridade
+    assert repo.find_product_by_name("Takamini GD-20").product_id == 95
+    assert repo.find_product_by_name("yamaha f 310").product_id == 87
+    assert repo.find_product_by_name("Les Paul").product_id == 131
 
 
 def test_search_price_ordering_and_limit(repo: Repository):
