@@ -2,10 +2,10 @@
 
     uv run python examples/generate.py
 
-Cada roteiro é uma conversa real com o modelo configurado no .env. O arquivo
-gerado registra as ferramentas chamadas em cada turno, para mostrar quando o
-agente consultou dados e quando consultou políticas. Os arquivos são revisados
-manualmente antes de entrar no repositório.
+Cada roteiro é uma conversa real com o modelo configurado no .env. A transcrição
+mostra só o que o cliente veria; o que o agente consultou em cada turno vai para
+uma seção "Bastidores" ao final, para quem avalia o projeto. Telefones e e-mails
+são mascarados. Os arquivos são revisados manualmente antes de entrar no repositório.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from pathlib import Path
 
 from emporio_agent.agent import Agent
 from emporio_agent.config import model_names, provider, reference_now
+from emporio_agent.privacy import describe_call, mask_text
 
 OUT_DIR = Path(__file__).parent
 
@@ -104,19 +105,29 @@ def render(script: dict, turns: list[tuple[str, list[str], str]], model_used: st
         f"**Cenário:** {script['scenario']}",
         "",
         f"_Gerado em {datetime.now():%d/%m/%Y} com {provider()} / {model_used}; "
-        f"data de referência do agente {reference_now():%d/%m/%Y}._",
+        f"data de referência do agente {reference_now():%d/%m/%Y}. "
+        "Telefones e e-mails mascarados._",
         "",
         "---",
         "",
     ]
-    for user, tools, reply in turns:
-        lines.append(f"**Cliente:** {user}")
+    for user, _, reply in turns:
+        lines.append(f"**Cliente:** {mask_text(user)}")
         lines.append("")
-        if tools:
-            lines.append(f"_ferramentas consultadas: {', '.join(tools)}_")
-            lines.append("")
-        lines.append("**Agente:** " + reply.replace("\n", "  \n"))
+        lines.append("**Agente:** " + mask_text(reply).replace("\n", "  \n"))
         lines.append("")
+    lines += [
+        "---",
+        "",
+        "## Bastidores: o que o agente consultou",
+        "",
+        "O cliente não vê esta parte. Cada linha é um turno da conversa e as ferramentas "
+        "que o agente chamou antes de responder.",
+        "",
+    ]
+    for index, (_, tools, _) in enumerate(turns, start=1):
+        lines.append(f"{index}. {', '.join(tools) if tools else 'nenhuma consulta'}")
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -131,7 +142,8 @@ def main() -> None:
             reply = agent.reply(history, user)
             history += reply.new_messages
             model_used = reply.model
-            turns.append((user, [f"{t.name}({t.args})" for t in reply.tool_calls], reply.text))
+            calls = [describe_call(t.name, t.args) for t in reply.tool_calls]
+            turns.append((user, calls, reply.text))
             print(f"  [{script['file']}] {user[:50]!r} -> {len(reply.text)} chars")
         (OUT_DIR / script["file"]).write_text(render(script, turns, model_used), encoding="utf-8")
     print("conversas geradas em", OUT_DIR)

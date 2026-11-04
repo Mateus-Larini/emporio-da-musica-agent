@@ -30,7 +30,15 @@ def fake_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo: Repository):
 
 def test_cli_non_interactive_persists_session(fake_cli: Path, capsys: pytest.CaptureFixture):
     code = cli.main(
-        ["--session", "teste", "--pergunta", "Onde fica a loja?", "--pergunta", "obrigado"]
+        [
+            "--session",
+            "teste",
+            "--rastro",
+            "--pergunta",
+            "Onde fica a loja?",
+            "--pergunta",
+            "obrigado",
+        ]
     )
     assert code == 0
     out = capsys.readouterr().out
@@ -44,7 +52,7 @@ def test_cli_non_interactive_persists_session(fake_cli: Path, capsys: pytest.Cap
 def test_cli_new_flag_clears_session(fake_cli: Path, capsys: pytest.CaptureFixture):
     store = SessionStore(fake_cli)
     store.append("x", [AIMessage(content="lixo antigo")])
-    cli.main(["--session", "x", "--new", "--sem-rastro", "--pergunta", "oi"])
+    cli.main(["--session", "x", "--new", "--pergunta", "oi"])
     out = capsys.readouterr().out
     assert "info_loja" not in out
     saved = store.load("x")
