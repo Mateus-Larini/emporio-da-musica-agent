@@ -144,3 +144,21 @@ def test_janelas_trazem_condicoes_proprias(tools, repo: Repository):
     janelas = {j["tipo"]: j for j in out["prazos_troca_devolucao"]["janelas"]}
     assert "compras online" in janelas["arrependimento"]["condicoes"]
     assert "defeito de fabricação" in janelas["troca por defeito"]["condicoes"]
+
+
+def test_telefone_truncado_pede_numero_completo(tools):
+    out = call(tools, "consultar_pedido", numero_pedido=7, telefone="67")
+    assert "incompleto" in out["erro"] and "itens" not in out
+    out = call(tools, "pedidos_do_cliente", telefone="(67)")
+    assert "incompleto" in out["erro"]
+
+
+def test_privacy_masking():
+    from emporio_agent.privacy import describe_call, mask_text
+
+    assert describe_call(
+        "consultar_pedido", {"numero_pedido": 7, "telefone": "(67) 99789-0123"}
+    ) == ("consultar_pedido(numero_pedido=7, telefone='***0123')")
+    masked = mask_text("pedido 7, tel (67) 99123-7788, email lucas.mendes@jmail.com")
+    assert "99123" not in masked and "lucas.mendes" not in masked
+    assert "***7788" in masked and "lu***@jmail.com" in masked

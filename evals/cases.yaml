@@ -1,0 +1,196 @@
+# Casos de avaliação do agente.
+#
+# Cada caso é uma conversa (um ou mais turnos). Para cada turno pode-se checar:
+#   expect_tools      : ao menos uma destas ferramentas foi chamada
+#   expect_no_tools   : nenhuma ferramenta foi chamada
+#   must_contain      : todos os trechos aparecem na resposta (sem diferenciar maiúsculas)
+#   must_contain_any  : ao menos um dos trechos aparece
+#   must_not_contain  : nenhum dos trechos aparece
+#
+# Os valores esperados vêm dos CSVs e do manual, com EMPORIO_REFERENCE_DATE=2026-03-25.
+# Trechos proibidos em qualquer resposta ficam em `forbidden_everywhere`.
+
+forbidden_everywhere:
+  - "nosso site"
+  - "reservar"
+  - "loja parceira"
+  - "lojas parceiras"
+  - "anotar seu interesse"
+  - "avisar quando chegar"
+
+cases:
+  - id: catalogo_violoes_ate_1000
+    group: catálogo
+    turns:
+      - user: "Quais violões vocês têm até R$ 1000?"
+        expect_tools: [buscar_produtos]
+        must_contain: ["Tagima Memphis", "429,90", "PIX"]
+
+  - id: catalogo_ukulele_vago
+    group: catálogo
+    turns:
+      - user: "to começando a tocar e queria um ukulele barato, o que indicam?"
+        expect_tools: [buscar_produtos]
+        must_contain: ["159,90"]
+
+  - id: catalogo_guitarra_rock_8mil
+    group: catálogo
+    turns:
+      - user: "tem alguma guitarra boa pra rock até uns 8 mil?"
+        expect_tools: [buscar_produtos]
+        must_contain: ["Telecaster", "5.400,00"]
+        must_not_contain: ["12.500", "18.900"]
+
+  - id: preco_takamine_pix
+    group: preço
+    turns:
+      - user: "Quanto custa o Takamine GD20 no pix?"
+        expect_tools: [detalhar_produto, buscar_produtos]
+        must_contain: ["2.089,05"]
+
+  - id: preco_nome_com_erro_de_digitacao
+    group: preço
+    turns:
+      - user: "quanto ta o takamini gd 20?"
+        expect_tools: [detalhar_produto, buscar_produtos]
+        must_contain: ["2.199,00"]
+
+  - id: promocao_mostra_original_e_percentual
+    group: promoções
+    turns:
+      - user: "O Taylor 110e está em promoção?"
+        expect_tools: [detalhar_produto, buscar_produtos, listar_promocoes]
+        must_contain: ["5.999,00", "5.519,08"]
+        must_contain_any: ["8%", "8 %", "8 por cento"]
+
+  - id: promocao_expirada_black_friday
+    group: promoções
+    turns:
+      - user: "Tem Black Friday rolando? Queria o Crafter CE-15 com desconto"
+        expect_tools: [listar_promocoes, detalhar_produto, buscar_produtos]
+        must_contain: ["3.899,00"]
+        must_not_contain: ["15%", "30%"]
+
+  - id: estoque_produto_sem_estoque
+    group: estoque
+    turns:
+      - user: "O Giannini GF-3D Sunburst tem na loja?"
+        expect_tools: [detalhar_produto, buscar_produtos]
+        must_contain_any: ["sem estoque", "indisponível", "esgotado"]
+        must_not_contain: ["não temos esse produto", "não faz parte do catálogo"]
+
+  - id: loja_endereco
+    group: loja
+    turns:
+      - user: "Qual o endereço da loja?"
+        must_contain: ["Rua 14 de Maio", "3200"]
+
+  - id: loja_horario_sabado
+    group: loja
+    turns:
+      - user: "Vocês abrem no sábado? Até que horas?"
+        must_contain: ["13"]
+
+  - id: loja_domingo_fechado
+    group: loja
+    turns:
+      - user: "Vocês abrem domingo?"
+        must_contain_any: ["fechad", "fechamos", "não abrimos", "não funcionamos"]
+
+  - id: pagamento_pix_desconto
+    group: políticas
+    turns:
+      - user: "Pagando no pix tem desconto?"
+        must_contain: ["5%"]
+
+  - id: pagamento_parcelamento_1200
+    group: políticas
+    turns:
+      - user: "Uma compra de 1200 reais, em quantas vezes consigo parcelar sem juros?"
+        expect_tools: [simular_pagamento_e_frete, consultar_politicas]
+        must_contain: ["12x"]
+
+  - id: frete_campo_grande_abaixo_500
+    group: políticas
+    turns:
+      - user: "Moro em Campo Grande, quanto fica o frete de um ukulele de 400 reais?"
+        expect_tools: [simular_pagamento_e_frete, consultar_politicas]
+        must_contain: ["35"]
+
+  - id: garantia_legal
+    group: políticas
+    turns:
+      - user: "Qual a garantia dos instrumentos?"
+        expect_tools: [consultar_politicas]
+        must_contain: ["90"]
+
+  - id: pedido_exige_identificacao
+    group: pedidos
+    turns:
+      - user: "Qual o status do pedido 7?"
+        must_contain_any: ["telefone", "e-mail", "email"]
+        must_not_contain: ["BRKR1122334BR", "entregue em"]
+
+  - id: pedido_telefone_errado_nao_revela
+    group: pedidos
+    turns:
+      - user: "Quero ver o pedido 7, meu telefone é (67) 99123-7788"
+        expect_tools: [consultar_pedido]
+        must_contain_any: ["não confere", "não conferem", "não bate", "não corresponde", "confirmar"]
+        must_not_contain: ["BRKR1122334BR", "Letícia"]
+
+  - id: pedido_telefone_correto
+    group: pedidos
+    turns:
+      - user: "Quero ver o pedido 7, meu telefone é (67) 99789-0123"
+        expect_tools: [consultar_pedido]
+        must_contain_any: ["BRKR1122334BR", "entregue"]
+
+  - id: pedido_arrependimento_prazo_expirado
+    group: pedidos
+    turns:
+      - user: "Me arrependi da minha compra, posso devolver meu pedido?"
+        must_contain_any: ["número do pedido", "telefone", "e-mail"]
+      - user: "Pedido 7, telefone (67) 99789-0123"
+        expect_tools: [consultar_pedido]
+        must_contain_any: ["24/02", "expirou", "passou", "não é mais possível", "encerrou", "terminou", "venceu"]
+        must_contain_any_2: ["18/05", "garantia"]
+
+  - id: pedido_enviado_atrasado
+    group: pedidos
+    turns:
+      - user: "Meu pedido 8 não chegou, meu email é anacarol.ferreira@coldmail.com"
+        expect_tools: [consultar_pedido]
+        must_contain: ["BRJL5544332BR"]
+
+  - id: pedidos_do_cliente_por_telefone
+    group: pedidos
+    turns:
+      - user: "Não lembro o número do meu pedido, meu telefone é (67) 98432-1098"
+        expect_tools: [pedidos_do_cliente]
+        must_contain_any: ["Martin", "11.499", "cancelado"]
+
+  - id: escopo_acessorio
+    group: escopo
+    turns:
+      - user: "Vocês têm corda de violão?"
+        must_contain_any: ["não vendemos", "não comercializamos", "só instrumentos", "apenas instrumentos", "somente instrumentos", "não trabalhamos"]
+
+  - id: escopo_categoria_vazia_violoncelo
+    group: escopo
+    turns:
+      - user: "Vocês vendem violoncelo?"
+        must_contain_any: ["não temos", "não há", "não trabalhamos", "sem violoncelo"]
+
+  - id: escopo_fotos
+    group: escopo
+    turns:
+      - user: "Quero o Yamaha C40, tem fotos?"
+        must_contain_any: ["não consigo enviar", "não consigo mandar", "por aqui não", "não envio"]
+
+  - id: escopo_fora_da_loja
+    group: escopo
+    turns:
+      - user: "Me ensina a fazer um bolo de cenoura?"
+        expect_no_tools: true
+        must_not_contain: ["farinha", "cenoura ralada", "forno"]
