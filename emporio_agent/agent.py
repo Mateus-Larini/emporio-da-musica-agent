@@ -7,6 +7,7 @@ ferramentas foram chamadas, com quais argumentos e o que devolveram.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -16,7 +17,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 
-from emporio_agent.config import model_name, provider, reference_now
+from emporio_agent.config import model_names, provider, reference_now
 from emporio_agent.data.repository import Repository
 from emporio_agent.prompts import system_prompt
 from emporio_agent.tools import build_tools
@@ -41,27 +42,58 @@ class AgentReply:
     tool_calls: list[ToolTrace] = field(default_factory=list)
     new_messages: list[BaseMessage] = field(default_factory=list)
     usage: dict[str, int] = field(default_factory=dict)
+    model: str = ""
 
 
-def default_model() -> BaseChatModel:
-    """Instancia o modelo do provedor configurado (.env)."""
-    name = model_name()
+def provider_error_text(exc: Exception) -> str:
+    """Mensagem para o usuário quando o provedor do modelo falha."""
+    message = str(exc)
+    if "429" in message or "rate_limit" in message.lower():
+        return (
+            "O serviço do modelo atingiu o limite de uso por enquanto. Tente de novo em "
+            "alguns minutos ou troque o modelo em EMPORIO_MODEL no arquivo .env."
+        )
+    if "401" in message or "api key" in message.lower() or "api_key" in message.lower():
+        return "Chave da API ausente ou inválida. Confira o arquivo .env (veja .env.example)."
+    return f"Não consegui falar com o modelo agora ({type(exc).__name__}). Tente novamente."
+
+
+def build_model(name: str) -> BaseChatModel:
+    """Instancia um modelo do provedor configurado (.env)."""
     if provider() == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(model=name, max_tokens=2048, temperature=0.3, max_retries=3)
+        return ChatGroq(model=name, max_tokens=2048, temperature=0.3, max_retries=2)
 
     from langchain_anthropic import ChatAnthropic
 
     # Haiku 5.5: thinking fica ligado por padrão; "low" é suficiente para
     # escolher ferramentas e redigir uma mensagem de WhatsApp.
-    return ChatAnthropic(model=name, max_tokens=2048, effort="low", max_retries=3)
+    return ChatAnthropic(model=name, max_tokens=2048, effort="low", max_retries=2)
+
+
+def default_models() -> list[BaseChatModel]:
+    return [build_model(name) for name in model_names()]
+
+
+def is_fallback_error(exc: Exception) -> bool:
+    """Erros em que vale tentar o próximo modelo da cadeia: cota esgotada,
+    modelo inexistente/indisponível, falha do servidor ou de rede."""
+    status = getattr(exc, "status_code", None)
+    if status in (404, 429) or (isinstance(status, int) and status >= 500):
+        return True
+    text = str(exc).lower()
+    return any(
+        marker in text
+        for marker in ("rate limit", "rate_limit", "429", "404", "not found", "overloaded")
+    ) or type(exc).__name__ in ("APIConnectionError", "APITimeoutError")
 
 
 class Agent:
     def __init__(
         self,
         model: BaseChatModel | None = None,
+        models: list[BaseChatModel] | None = None,
         repo: Repository | None = None,
         tools: list[BaseTool] | None = None,
         now_fn: Callable[[], datetime] = reference_now,
@@ -71,8 +103,15 @@ class Agent:
         self.now_fn = now_fn
         self.tools = tools or build_tools(self.repo, now_fn)
         self.tool_map = {t.name: t for t in self.tools}
-        self.base_model = model or default_model()
-        self.model = self.base_model.bind_tools(self.tools)
+        if model is not None:
+            models = [model]
+        elif models is None:
+            models = default_models()
+        if not models:
+            raise ValueError("Nenhum modelo configurado. Veja .env.example.")
+        # Pares (modelo sem ferramentas, modelo com ferramentas), na ordem de tentativa.
+        self.models = [(m, m.bind_tools(self.tools)) for m in models]
+        self.active_index = 0
         self.max_tool_rounds = max_tool_rounds
 
     def reply(self, history: list[BaseMessage], user_text: str) -> AgentReply:
@@ -88,7 +127,7 @@ class Agent:
 
         ai: AIMessage | None = None
         for _ in range(self.max_tool_rounds + 1):
-            ai = self.model.invoke([system, *history, *new_messages])
+            ai = self._invoke([system, *history, *new_messages], with_tools=True)
             new_messages.append(ai)
             self._accumulate_usage(usage, ai)
             if not ai.tool_calls:
@@ -99,13 +138,14 @@ class Agent:
                 new_messages.append(ToolMessage(content=result, tool_call_id=call["id"]))
         else:
             # Estourou o número de rodadas: pede uma resposta final sem ferramentas.
-            ai = self.base_model.invoke(
+            ai = self._invoke(
                 [
                     system,
                     *history,
                     *new_messages,
                     HumanMessage(content="Responda agora ao cliente com o que já tem."),
-                ]
+                ],
+                with_tools=False,
             )
             new_messages.append(ai)
             self._accumulate_usage(usage, ai)
@@ -116,7 +156,31 @@ class Agent:
             tool_calls=traces,
             new_messages=new_messages,
             usage=usage,
+            model=self.model_name,
         )
+
+    @property
+    def model_name(self) -> str:
+        """Nome do modelo que respondeu por último (para a UI e os logs)."""
+        base = self.models[self.active_index][0]
+        return getattr(base, "model", None) or getattr(base, "model_name", None) or "?"
+
+    def _invoke(self, messages: list[BaseMessage], with_tools: bool) -> AIMessage:
+        """Chama o modelo ativo; em erro de cota/indisponibilidade passa ao próximo
+        da cadeia e mantém esse como ativo para as chamadas seguintes."""
+        last_error: Exception | None = None
+        for index in range(self.active_index, len(self.models)):
+            base, bound = self.models[index]
+            try:
+                ai = (bound if with_tools else base).invoke(messages)
+            except Exception as exc:  # noqa: BLE001 - decidimos abaixo se é caso de fallback
+                if not is_fallback_error(exc) or index == len(self.models) - 1:
+                    raise
+                last_error = exc
+                continue
+            self.active_index = index
+            return ai
+        raise last_error if last_error else RuntimeError("nenhum modelo disponível")
 
     def _run_tool(self, name: str, args: dict[str, Any]) -> str:
         tool = self.tool_map.get(name)
@@ -125,7 +189,14 @@ class Agent:
         try:
             return str(tool.invoke(args))
         except Exception as exc:  # noqa: BLE001 - o erro volta ao modelo, não derruba o chat
-            return f'{{"erro": "falha ao executar {name}: {exc}"}}'
+            return json.dumps(
+                {
+                    "erro": f"falha ao executar {name}: {exc}",
+                    "instrucao": "Não repita a mesma chamada. Informe ao cliente que houve "
+                    "um problema técnico momentâneo e ofereça o WhatsApp da equipe.",
+                },
+                ensure_ascii=False,
+            )
 
     @staticmethod
     def _accumulate_usage(usage: dict[str, int], ai: AIMessage) -> None:
