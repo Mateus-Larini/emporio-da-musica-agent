@@ -28,8 +28,9 @@ seção "Bastidores" mostrando o que foi consultado. Resultado da avaliação au
 ## Como rodar
 
 **Requisitos:** [uv](https://docs.astral.sh/uv/) (instala o Python 3.12 sozinho) e uma
-chave de API. A opção gratuita, sem cartão, é o [Groq](https://console.groq.com/keys).
-A Anthropic (Claude) também é suportada.
+chave de API. As opções gratuitas, sem cartão, são o [Groq](https://console.groq.com/keys)
+e o [Google Gemini](https://aistudio.google.com/apikey). A Anthropic (Claude) também é
+suportada.
 
 ```bash
 git clone https://github.com/Mateus-Larini/emporio-da-musica-agent.git
@@ -55,8 +56,8 @@ Variáveis do `.env` (todas documentadas em [`.env.example`](.env.example)):
 
 | Variável | Para quê |
 |---|---|
-| `EMPORIO_PROVIDER` | `groq` ou `anthropic`. Se omitida, usa o provedor cuja chave existir. |
-| `GROQ_API_KEY` / `ANTHROPIC_API_KEY` | chave do provedor |
+| `EMPORIO_PROVIDER` | `groq`, `google` ou `anthropic`. Se omitida, usa o provedor cuja chave existir. |
+| `GROQ_API_KEY` / `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` | chave do provedor |
 | `EMPORIO_MODEL`, `EMPORIO_MODEL_FALLBACKS` | modelo principal e lista de reservas (ver "Modelo e provedor") |
 | `EMPORIO_REFERENCE_DATE` | data "de hoje" para cálculo de prazos (ver "Suposições") |
 
@@ -155,7 +156,9 @@ servidor, o agente passa ao seguinte (`openai/gpt-oss-20b`, depois `qwen/qwen3.8
 cada um com cota própria. Erros de requisição inválida não disparam fallback, porque
 repetir em outro modelo não resolveria. A cadeia é configurável no `.env`.
 
-**Claude** (Anthropic) é suportado trocando o provedor no `.env`; o padrão nesse caso é
+**Google Gemini** (`gemini-2.5-flash`, com `flash-lite` como reserva) é a segunda opção
+gratuita, com cota própria; entrou quando a cota diária do Groq acabou durante a geração
+dos exemplos. **Claude** (Anthropic) é suportado trocando o provedor no `.env`; o padrão nesse caso é
 `claude-haiku-5-5`, com esforço de raciocínio baixo, suficiente para escolher ferramentas
 e redigir uma mensagem de WhatsApp. Modelo local via Ollama foi descartado por exigir
 GPU para ficar utilizável.
