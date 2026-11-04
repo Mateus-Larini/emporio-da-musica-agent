@@ -1,6 +1,8 @@
 """Gera as conversas de exemplo em examples/*.md a partir de roteiros fixos.
 
-    uv run python examples/generate.py
+    uv run python examples/generate.py              todos os roteiros
+    uv run python examples/generate.py 04 120       só os roteiros com "04" no nome,
+                                                    esperando até 120 min por cota
 
 Cada roteiro é uma conversa real com o modelo configurado no .env. A transcrição
 mostra só o que o cliente veria; o que o agente consultou em cada turno vai para
@@ -10,10 +12,11 @@ são mascarados. Os arquivos são revisados manualmente antes de entrar no repos
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from pathlib import Path
 
-from emporio_agent.agent import Agent
+from emporio_agent.agent import Agent, reply_when_quota_allows
 from emporio_agent.config import model_names, provider, reference_now
 from emporio_agent.privacy import describe_call, mask_text
 
@@ -131,15 +134,20 @@ def render(script: dict, turns: list[tuple[str, list[str], str]], model_used: st
     return "\n".join(lines)
 
 
-def main() -> None:
+def main(only: str = "", max_wait: float = 0) -> None:
+    """`only` filtra roteiros pelo nome do arquivo; `max_wait` (segundos) é quanto
+    esperar a cota do provedor reencher antes de desistir de um turno."""
     agent = Agent()
     print(f"provedor {provider()} | modelos {' > '.join(model_names())}")
     for script in SCRIPTS:
+        if only not in script["file"]:
+            continue
+        agent.active_index = 0  # cada conversa tenta o modelo principal primeiro
         history = []
         turns: list[tuple[str, list[str], str]] = []
         model_used = ""
         for user in script["turns"]:
-            reply = agent.reply(history, user)
+            reply = reply_when_quota_allows(agent, history, user, max_wait)
             history += reply.new_messages
             model_used = reply.model
             calls = [describe_call(t.name, t.args) for t in reply.tool_calls]
@@ -150,4 +158,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # uso: generate.py [trecho-do-nome] [minutos-de-espera-por-cota]
+    main(
+        only=sys.argv[1] if len(sys.argv) > 1 else "",
+        max_wait=60 * float(sys.argv[2]) if len(sys.argv) > 2 else 0,
+    )

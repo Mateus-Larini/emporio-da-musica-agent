@@ -3,6 +3,7 @@
     uv run python -m evals                 roda tudo e grava evals/results.md
     uv run python -m evals --only pedido_  só casos cujo id contém o texto
     uv run python -m evals --no-report     não grava o relatório
+    uv run python -m evals --wait 120      espera até 120 min por cota em cada chamada
 
 Cada caso começa com histórico vazio. Usa o mesmo Agent da CLI e da UI.
 """
@@ -18,7 +19,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from emporio_agent.agent import Agent
+from emporio_agent.agent import Agent, reply_when_quota_allows
 from emporio_agent.config import model_names, provider, reference_now
 from emporio_agent.privacy import mask_text
 from evals import CASES_PATH, CaseResult, TurnResult, check_turn, load_cases
@@ -27,12 +28,15 @@ REPORT_PATH = Path(__file__).with_name("results.md")
 console = Console()
 
 
-def run_case(agent: Agent, case: dict, forbidden: list[str]) -> CaseResult:
+def run_case(agent: Agent, case: dict, forbidden: list[str], max_wait: float = 0) -> CaseResult:
+    # Cada caso tenta o modelo principal primeiro, mesmo que um caso anterior tenha
+    # caído para um reserva: a cota reenche aos poucos e a tentativa é barata.
+    agent.active_index = 0
     history = []
     turns: list[TurnResult] = []
     for spec in case["turns"]:
         try:
-            reply = agent.reply(history, spec["user"])
+            reply = reply_when_quota_allows(agent, history, spec["user"], max_wait, log=console.log)
         except Exception as exc:  # noqa: BLE001 - falha do provedor conta como erro do caso
             return CaseResult(
                 case["id"], case.get("group", ""), turns, error=f"{type(exc).__name__}: {exc}"
@@ -114,6 +118,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="evals", description=__doc__.split("\n\n")[0])
     parser.add_argument("--only", default="", help="roda só casos cujo id contém este texto")
     parser.add_argument("--no-report", action="store_true", help="não grava evals/results.md")
+    parser.add_argument(
+        "--wait", type=float, default=0, help="minutos máximos de espera por cota em cada chamada"
+    )
     args = parser.parse_args(argv)
 
     cases, forbidden = load_cases(CASES_PATH)
@@ -132,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for case in cases:
         with console.status(f"[dim]{case['id']}[/dim]"):
-            result = run_case(agent, case, forbidden)
+            result = run_case(agent, case, forbidden, max_wait=args.wait * 60)
         results.append(result)
         detail = result.error or "; ".join(f for t in result.turns for f in t.failures)
         table.add_row(

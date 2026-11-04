@@ -104,7 +104,7 @@ novas são anexadas ao JSON da sessão.
 | `emporio_agent/memory.py` | persistência do histórico por sessão |
 | `emporio_agent/cli.py`, `app.py` | interfaces |
 | `evals/` | casos de avaliação e runner |
-| `tests/` | 77 testes, nenhum chama API |
+| `tests/` | 84 testes, nenhum chama API |
 
 ---
 
@@ -154,6 +154,13 @@ O limite diário da cota gratuita apareceu durante os testes. A resposta foi uma
 servidor, o agente passa ao seguinte (`openai/gpt-oss-20b`, depois `qwen/qwen3.8-27b`),
 cada um com cota própria. Erros de requisição inválida não disparam fallback, porque
 repetir em outro modelo não resolveria. A cadeia é configurável no `.env`.
+
+O Groq tem dois limites: por minuto e por dia. Quando o erro informa uma espera curta
+(limite por minuto), o agente aguarda esses segundos e repete no mesmo modelo, que
+responde melhor que os reservas; só desce na cadeia quando a espera seria longa (cota
+do dia). Os scripts em lote (avaliação e exemplos) ainda aceitam esperar a cota
+reencher entre chamadas (`--wait` em minutos), porque rodam dezenas de conversas
+seguidas.
 
 **Claude** (Anthropic) é suportado trocando o provedor no `.env`; o padrão nesse caso é
 `claude-haiku-5-5`, com esforço de raciocínio baixo, suficiente para escolher ferramentas
@@ -223,7 +230,7 @@ O enunciado pede para assumir interpretações razoáveis e documentá-las.
 
 ## Qualidade
 
-- **Testes** (`uv run pytest`): 77 testes cobrindo carga e integridade dos dados, busca,
+- **Testes** (`uv run pytest`): 84 testes cobrindo carga e integridade dos dados, busca,
   regras de preço/parcela/frete/prazos, recuperação de políticas, as 8 ferramentas
   (inclusive a recusa por identificação errada), o loop do agente com modelo simulado,
   a cadeia de fallback, a persistência e a CLI. Nenhum chama API.
