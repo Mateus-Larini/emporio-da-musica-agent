@@ -119,15 +119,11 @@ def _order_payload(repo: Repository, order: Order, now: datetime) -> dict:
                 "prazo_final": w.deadline.isoformat(),
                 "dias_restantes": w.days_left,
                 "dentro_do_prazo": w.open,
+                "condicoes": w.conditions,
             }
             for w in assessment.windows
         ],
         "observacao": assessment.note,
-        "condicoes": (
-            "Arrependimento vale para compras online, produto na embalagem original e sem "
-            "uso; frete de devolução por conta da loja; reembolso na mesma forma de "
-            "pagamento em até 10 dias úteis. Troca por defeito exige defeito de fabricação."
-        ),
     }
     return payload
 
@@ -219,14 +215,43 @@ def build_tools(repo: Repository, now_fn: Callable[[], datetime] = reference_now
         )
         if not products:
             categories = [c.name for c in repo.list_categories()]
-            return _json(
-                {
-                    "resultados": [],
-                    "dica": "Nada encontrado com esses filtros. Tente outra palavra ou "
-                    "categoria. Categorias do catálogo: " + ", ".join(categories),
-                }
-            )
-        return _json({"resultados": [_product_payload(repo, p) for p in products]})
+            payload: dict[str, Any] = {
+                "resultados": [],
+                "dica": "Nada encontrado com esses filtros. Tente outra palavra ou "
+                "categoria. Categorias do catálogo: " + ", ".join(categories),
+            }
+            if apenas_disponiveis and busca:
+                unavailable = [
+                    p
+                    for p in repo.search_products(
+                        query=busca, category=categoria, min_price=preco_min, max_price=preco_max
+                    )
+                    if not p.available
+                ]
+                if unavailable:
+                    payload["indisponiveis_no_momento"] = [
+                        {"id": p.product_id, "nome": p.name, "situacao": _availability(p)}
+                        for p in unavailable[:5]
+                    ]
+            return _json(payload)
+        payload: dict[str, Any] = {"resultados": [_product_payload(repo, p) for p in products]}
+        if apenas_disponiveis and busca:
+            # Produtos que casam com a busca mas não podem ser vendidos agora: o
+            # atendente precisa saber que existem para não dizer "não temos".
+            shown = {p.product_id for p in products}
+            unavailable = [
+                p
+                for p in repo.search_products(
+                    query=busca, category=categoria, min_price=preco_min, max_price=preco_max
+                )
+                if not p.available and p.product_id not in shown
+            ]
+            if unavailable:
+                payload["indisponiveis_no_momento"] = [
+                    {"id": p.product_id, "nome": p.name, "situacao": _availability(p)}
+                    for p in unavailable[:5]
+                ]
+        return _json(payload)
 
     def detalhar_produto(produto: str) -> str:
         product = None

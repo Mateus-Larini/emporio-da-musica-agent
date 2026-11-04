@@ -173,6 +173,7 @@ class ReturnWindow:
     days_left: int
     open: bool
     basis: str
+    conditions: str
 
 
 @dataclass(frozen=True)
@@ -211,20 +212,49 @@ def return_assessment(order: Order, today: date) -> ReturnAssessment:
             "para cancelar antes do envio, a equipe da loja deve ser acionada.",
         )
 
-    def window(name: str, start: date, days: int, basis: str) -> ReturnWindow:
+    def window(name: str, start: date, days: int, basis: str, conditions: str) -> ReturnWindow:
         deadline = start + timedelta(days=days)
         left = (deadline - today).days
-        return ReturnWindow(name, deadline, left, left >= 0, basis)
+        return ReturnWindow(name, deadline, left, left >= 0, basis, conditions)
 
     windows = (
-        window("arrependimento", received, WITHDRAWAL_DAYS, "7 dias corridos após o recebimento"),
         window(
-            "troca por preferência", received, PREFERENCE_EXCHANGE_DAYS, "7 dias após o recebimento"
+            "arrependimento",
+            received,
+            WITHDRAWAL_DAYS,
+            "7 dias corridos após o recebimento",
+            "Só para compras online (seção 4.1). Sem necessidade de justificativa. Produto na "
+            "embalagem original, sem sinais de uso, com acessórios e manuais. Frete de "
+            "devolução por conta da loja. Reembolso na mesma forma de pagamento em até 10 "
+            "dias úteis.",
         ),
         window(
-            "troca por defeito", purchased, DEFECT_EXCHANGE_DAYS, "30 dias corridos após a compra"
+            "troca por preferência",
+            received,
+            PREFERENCE_EXCHANGE_DAYS,
+            "7 dias após o recebimento (base assumida)",
+            "Troca de cor/modelo/tamanho mediante disponibilidade (seção 4.3). Produto em "
+            "perfeito estado e na embalagem original. Diferença de valor cobrada ou "
+            "reembolsada.",
         ),
-        window("garantia legal", received, LEGAL_WARRANTY_DAYS, "90 dias após o recebimento"),
+        window(
+            "troca por defeito",
+            purchased,
+            DEFECT_EXCHANGE_DAYS,
+            "30 dias corridos após a compra",
+            "Apenas defeito de fabricação (seção 4.2). Depois de 30 dias, garantia direto com "
+            "o fabricante; a loja pode intermediar. Mau uso, quedas, umidade e modificações "
+            "não são cobertos.",
+        ),
+        window(
+            "garantia legal",
+            received,
+            LEGAL_WARRANTY_DAYS,
+            "90 dias após o recebimento",
+            "Garantia legal do CDC contra defeito de fabricação (seção 8.1). Não cobre "
+            "desgaste natural, mau uso, reparos por terceiros nem danos estéticos. O "
+            "fabricante pode oferecer garantia própria de 6 meses a 2 anos.",
+        ),
     )
     return ReturnAssessment(
         order.status,
