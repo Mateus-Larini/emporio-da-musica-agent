@@ -77,3 +77,21 @@ def test_order_with_items(repo: Repository):
 def test_orders_for_customer_sorted_desc(repo: Repository):
     orders = repo.orders_for_customer(3)
     assert [o.order_id for o in orders] == [19, 1]
+
+
+def test_repository_works_from_another_thread(repo: Repository):
+    import threading
+
+    results: list[int] = []
+    errors: list[Exception] = []
+
+    def worker() -> None:
+        try:
+            results.append(len(repo.search_products(category="Violões", limit=5)))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    thread.join()
+    assert not errors and results == [5]
