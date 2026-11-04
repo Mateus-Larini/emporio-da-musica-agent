@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from emporio_agent.config import DB_PATH
@@ -185,7 +186,11 @@ class Repository:
         return [p for _, p in scored[:limit]]
 
     def find_product_by_name(self, name: str) -> Product | None:
-        """Melhor correspondência para um nome citado pelo cliente (ex.: "Takamine GD20")."""
+        """Melhor correspondência para um nome citado pelo cliente (ex.: "Takamine GD20").
+
+        1) todos os termos no nome; 2) melhor resultado da busca textual;
+        3) similaridade de caracteres, para erros de digitação ("Takamini GD-20").
+        """
         terms = tokens(name)
         if not terms:
             return None
@@ -194,7 +199,21 @@ class Repository:
             name_norm = " ".join(tokens(p.name))
             if all(t in name_norm for t in terms):
                 return p
-        return candidates[0] if candidates else None
+        if candidates:
+            return candidates[0]
+        return self._fuzzy_product(" ".join(terms))
+
+    def _fuzzy_product(self, query_norm: str, threshold: float = 0.6) -> Product | None:
+        rows = self._conn.execute(self._PRODUCT_SQL).fetchall()
+        best: tuple[float, sqlite3.Row] | None = None
+        for r in rows:
+            name_norm = " ".join(tokens(r["name"]))
+            # compara contra o prefixo do nome com o mesmo tamanho da busca,
+            # para "takamini gd 20" casar com "takamine gd20 dreadnought natural"
+            ratio = SequenceMatcher(None, query_norm, name_norm[: len(query_norm) + 4]).ratio()
+            if ratio >= threshold and (best is None or ratio > best[0]):
+                best = (ratio, r)
+        return self._row_to_product(best[1]) if best else None
 
     def similar_products(self, product: Product, limit: int = 3) -> list[Product]:
         """Alternativas disponíveis da mesma categoria, mais próximas em preço."""
