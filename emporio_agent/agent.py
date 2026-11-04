@@ -284,3 +284,6 @@ def reply_when_quota_allows(
             log(f"sem cota ({agent.model_name}); aguardando {wait:.0f}s")
             sleep(wait)
             waited += wait
+            # Durante a espera todos os modelos reencheram; a nova tentativa começa
+            # do principal em vez de ficar presa no último que falhou.
+            agent.active_index = 0

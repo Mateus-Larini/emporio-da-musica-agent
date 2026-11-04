@@ -142,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             result = run_case(agent, case, forbidden, max_wait=args.wait * 60)
         results.append(result)
         detail = result.error or "; ".join(f for t in result.turns for f in t.failures)
+        console.log(f"{case['id']}: {'ok' if result.passed else 'FALHOU'} {detail[:80]}")
         table.add_row(
             case["id"],
             "[green]ok[/green]" if result.passed else "[red]FALHOU[/red]",
