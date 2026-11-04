@@ -15,7 +15,7 @@ import streamlit as st
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 from emporio_agent.agent import Agent, provider_error_text
-from emporio_agent.config import model_name, provider, reference_now
+from emporio_agent.config import model_names, provider, reference_now
 from emporio_agent.memory import SessionStore
 
 st.set_page_config(page_title="Empório da Música", page_icon="🎸", layout="centered")
@@ -90,7 +90,7 @@ with st.sidebar:
     st.divider()
     st.markdown(
         f"**Provedor:** {provider()}  \n"
-        f"**Modelo:** {model_name()}  \n"
+        f"**Modelos:** {' > '.join(model_names())}  \n"
         f"**Data de referência:** {reference_now():%d/%m/%Y}"
     )
     st.caption(
