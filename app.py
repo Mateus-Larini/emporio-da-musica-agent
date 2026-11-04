@@ -31,6 +31,16 @@ def get_store() -> SessionStore:
     return SessionStore()
 
 
+def _render_text(text: str) -> None:
+    """Mostra a resposta preservando as quebras de linha.
+
+    O agente escreve texto puro, um produto por linha. O Markdown do Streamlit
+    juntaria essas linhas em um parágrafo; dois espaços antes da quebra forçam a
+    quebra de linha.
+    """
+    st.markdown(text.replace("\n", "  \n"))
+
+
 def _render_tools(calls: list[dict]) -> None:
     if not calls:
         return
@@ -63,7 +73,7 @@ def _render_history(messages: list[BaseMessage]) -> None:
             if text:
                 with st.chat_message("assistant"):
                     _render_tools(list(pending.values()))
-                    st.write(text)
+                    _render_text(text)
                 pending = {}
 
 
@@ -111,4 +121,4 @@ if prompt := st.chat_input("Escreva sua mensagem..."):
         _render_tools(
             [{"name": t.name, "args": t.args, "result": t.result} for t in reply.tool_calls]
         )
-        st.write(reply.text)
+        _render_text(reply.text)
