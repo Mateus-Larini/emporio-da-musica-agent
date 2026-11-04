@@ -237,6 +237,7 @@ def test_reply_when_quota_allows_waits_and_retries(repo: Repository):
         agent, [], "oi", max_wait=600, sleep=waits.append, log=lambda _: None
     )
     assert reply.text == "Voltou." and waits == [125.0, 125.0]
+    assert agent.active_index == 0
 
     # acima do teto de espera o erro sobe
     model = ExhaustedThenOk()
