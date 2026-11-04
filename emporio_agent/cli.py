@@ -19,7 +19,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from emporio_agent.agent import Agent, AgentReply
+from emporio_agent.agent import Agent, AgentReply, provider_error_text
 from emporio_agent.config import model_name, provider, reference_now
 from emporio_agent.memory import SessionStore
 
@@ -52,6 +52,15 @@ def answer(agent: Agent, store: SessionStore, session_id: str, text: str) -> Age
     reply = agent.reply(history, text)
     store.append(session_id, reply.new_messages)
     return reply
+
+
+def safe_answer(agent: Agent, store: SessionStore, session_id: str, text: str) -> AgentReply:
+    """Como `answer`, mas uma falha do provedor (cota, rede) vira uma mensagem
+    amigável em vez de derrubar o chat. Nada é salvo na sessão nesse caso."""
+    try:
+        return answer(agent, store, session_id, text)
+    except Exception as exc:  # noqa: BLE001 - qualquer erro do provedor
+        return AgentReply(text=provider_error_text(exc))
 
 
 def run_interactive(agent: Agent, store: SessionStore, session_id: str, show_trace: bool) -> None:
@@ -88,7 +97,7 @@ def run_interactive(agent: Agent, store: SessionStore, session_id: str, show_tra
             )
             continue
         with console.status("[dim]consultando...[/dim]"):
-            reply = answer(agent, store, session_id, text)
+            reply = safe_answer(agent, store, session_id, text)
         _print_reply(reply, show_trace)
 
 
@@ -112,7 +121,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.pergunta:
         for text in args.pergunta:
             console.print(f"[bold yellow]Você:[/bold yellow] {text}")
-            reply = answer(agent, store, args.session, text)
+            reply = safe_answer(agent, store, args.session, text)
             _print_reply(reply, show_trace)
         return 0
 

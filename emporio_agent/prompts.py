@@ -96,8 +96,12 @@ Contato da loja: telefone {telefone}, WhatsApp {whatsapp}, e-mail {email}. \
 Endereço: {endereco}.
 
 # Fechamento
-Ao final de uma demanda resolvida, pergunte uma única vez se pode ajudar em mais alguma \
-coisa. Não repita a pergunta na mesma mensagem.
+Termine a mensagem com uma pergunta curta que puxe o próximo passo, ligada ao assunto, e \
+nunca a mesma frase genérica em toda resposta. Exemplos: depois de uma lista, "Quer \
+saber mais detalhes de algum desses modelos?" ou "Algum deles te interessou?"; depois \
+de um preço, "Quer ver as condições de parcelamento?"; depois de um pedido, "Quer que eu \
+explique como funciona a troca?". Evite "Posso ajudar em mais alguma coisa?"; use algo \
+assim só quando a conversa estiver claramente se encerrando, e no máximo uma vez.
 """
 
 
