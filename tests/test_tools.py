@@ -128,3 +128,19 @@ def test_info_loja(tools):
     out = call(tools, "info_loja")
     assert out["endereco"].startswith("Rua 14 de Maio")
     assert out["agora"]["loja_aberta_agora"] is True and out["agora"]["dia_da_semana"] == "quarta"
+
+
+def test_buscar_mostra_indisponiveis_que_casam_com_a_busca(tools):
+    out = call(tools, "buscar_produtos", busca="Giannini GF-3D Sunburst")
+    names = [r["nome"] for r in out["resultados"]]
+    assert "Giannini GF-3D Dreadnought Sunburst" not in names
+    unavailable = {u["nome"]: u["situacao"] for u in out["indisponiveis_no_momento"]}
+    assert unavailable["Giannini GF-3D Dreadnought Sunburst"] == "temporariamente sem estoque"
+
+
+def test_janelas_trazem_condicoes_proprias(tools, repo: Repository):
+    customer = repo.get_customer(14)
+    out = call(tools, "consultar_pedido", numero_pedido=7, telefone=customer.phone)
+    janelas = {j["tipo"]: j for j in out["prazos_troca_devolucao"]["janelas"]}
+    assert "compras online" in janelas["arrependimento"]["condicoes"]
+    assert "defeito de fabricação" in janelas["troca por defeito"]["condicoes"]
